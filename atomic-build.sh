@@ -11,6 +11,9 @@ working_dir="$HOME/working"
 BASE_DISTRO=${BASE_DISTRO:-"centos"}
 DISTRO_VERSION=${DISTRO_VERSION:-"downstream"}
 
+# dnf / yum wrapper
+DNF_YUM=${DNF_YUM:-"dnf"}
+
 install_rclone() {
     # rclone
     mkdir -p ~/bin
@@ -19,20 +22,18 @@ install_rclone() {
     mv rclone-v1.36-linux-amd64/rclone ~/bin/
 
     # swift
-    sudo dnf groupinstall -y 'Development Tools'
-    sudo dnf install -y python2-devel
-    sudo pip install virtualenv
-    virtualenv ~/venv
-    source ~/venv/bin/activate
-    pip install python-keystoneclient python-swiftclient
-    deactivate
+    sudo ${DNF_YUM} install -y python2-swiftclient
 }
 
 install_dependencies() {
     # install package dependencies
-    sudo dnf update -y
-    sudo dnf install -y rpm-ostree rpm-ostree-toolbox imagefactory imagefactory-plugins lorax pykickstart
-    sudo dnf install -y git docker libvirt createrepo wget tig unzip
+    sudo ${DNF_YUM} update -y
+    sudo ${DNF_YUM} install -y rpm-ostree imagefactory imagefactory-plugins lorax pykickstart
+    sudo ${DNF_YUM} install -y git docker libvirt createrepo wget tig unzip vim
+
+    # latest version from copr
+    sudo ${DNF_YUM} copr enable -y jasonbrooks/rpm-ostree-toolbox
+    sudo ${DNF_YUM} --enablerepo="jasonbrooks-rpm-ostree-toolbox" install -y "rpm-ostree-toolbox"
 
     # tune oz
     sudo sed -i -e 's/# memory = 1024/memory = 3072/g' /etc/oz/oz.cfg
