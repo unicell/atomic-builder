@@ -25,6 +25,28 @@ install_rclone() {
     sudo ${DNF_YUM} install -y python2-swiftclient
 }
 
+install_centos_dependencies() {
+    sudo tee -a /etc/yum.repos.d/rhel-atomic-rebuild.repo <<'EOF'
+[rhel-atomic-rebuild]
+name=rhel-atomic-rebuild
+baseurl=http://buildlogs.centos.org/centos/7/atomic/x86_64/Packages/
+gpgcheck=0
+exclude=systemd systemd-container systemd-container-libs systemd-libs
+EOF
+    sudo yum -y install ostree rpm-ostree glib2 docker libvirt epel-release libgsystem
+
+    sudo tee -a /etc/yum.repos.d/atomic7-testing.repo <<'EOF'
+[atomic7-testing]
+name=atomic7-testing
+baseurl=http://cbs.centos.org/repos/atomic7-testing/x86_64/os/
+gpgcheck=0
+enabled=0
+EOF
+    sudo yum --enablerepo=atomic7-testing -y install rpm-ostree-toolbox
+
+    sudo yum install -y yum-plugin-copr
+}
+
 install_dependencies() {
     # install package dependencies
     sudo ${DNF_YUM} update -y
