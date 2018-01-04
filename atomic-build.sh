@@ -71,6 +71,13 @@ install_dependencies() {
     sudo sed -i "s/--selinux-enabled//g" /etc/sysconfig/docker
     sudo sed -i "s/^# setsebool -P docker_transition_unconfined 1/setsebool -P docker_transition_unconfined 1/g" /etc/sysconfig/docker
     sudo systemctl enable docker --now
+
+    # prep firewalld if any
+    sudo systemctl stop firewalld || true
+
+    # oz 0.16 hotfix
+    # https://github.com/clalancette/oz/pull/248
+    sudo sed -i -e 's/requests_session.post/requests_session.head/g' /usr/lib/python2.7/site-packages/oz/ozutil.py
 }
 
 install_http_service() {
@@ -136,7 +143,7 @@ install_repos() {
 }
 
 # depends on install_repos
-prep_repos() {
+prep_ostree_repos() {
     # initialize ostree repo
     sudo mkdir -p /srv/repo
     sudo ostree --repo=/srv/repo init --mode=archive-z2
@@ -149,6 +156,11 @@ prep_repos() {
       sudo ostree remote add --repo=/srv/repo fedora-atomic --set=gpg-verify=false https://kojipkgs.fedoraproject.org/atomic/${DISTRO_VERSION:1}/
       sudo ostree pull --depth=0 --repo=/srv/repo --mirror fedora-atomic fedora/${DISTRO_VERSION:1}/x86_64/atomic-host
     fi
+
+    # deal with https://bugzilla.gnome.org/show_bug.cgi?id=748959
+    sudo chmod -R a+r /srv/repo/objects
+    sudo find /srv/repo/ -type d -exec chmod -R a+x {} \;
+    sudo find /srv/repo/ -type f -exec chmod -R a+r {} \;
 }
 
 prep_build() {
@@ -161,10 +173,12 @@ prep_build() {
 # depends on install_repos
 prep_scripts() {
     pushd $working_dir
-    # use local repo
-    #sed -i 's#http://.*#http://192.168.122.1:8000/installer/images/</url>#g' metadata/*.tdl
-    sed -i 's#http://.*#https://ci.centos.org/artifacts/sig-atomic/downstream/installer/images/</url>#g' metadata/*.tdl
-    sed -i 's#--url=.* #--url="http://192.168.122.1:8000/repo/" #g' kickstarts/*atomic*.ks
+
+    # hack repo url
+    #sed -i 's#http://.*#https://ci.centos.org/artifacts/sig-atomic/downstream/installer/images/</url>#g' metadata/*.tdl
+    #sed -i 's#--url=.* #--url="http://192.168.122.1:8000/repo/" #g' kickstarts/*atomic*.ks
+
+    sed -i -e 's#</template>#    <disk>\n        <size>40G</size>\n    </disk>\n</template>#g' metadata/atomic-7.1.tdl
 
     # fedora config.ini needs a tweak
     #if [ $BASE_DISTRO = "fedora" ]; then
@@ -175,17 +189,30 @@ prep_scripts() {
 }
 
 setup() {
+    prep_build
+
     install_dependencies
     install_http_service
     #install_installers
-    install_repos
 
-    prep_repos
-    prep_build
+    install_repos
+    prep_ostree_repos
+
     prep_scripts
 }
 
-build_vagrant_images() {
+build_installer() {
+    echo "building installer"
+    sudo rpm-ostree-toolbox installer --overwrite --ostreerepo ${working_dir}/build/repo -c ${working_dir}/metadata/config.ini -o ${working_dir}/build/installer
+}
+
+__build_centos_vagrant_images() {
+    pushd $working_dir
+    sudo rpm-ostree-toolbox imagefactory --overwrite --tdl ${working_dir}/metadata/atomic-7.1.tdl -c  ${working_dir}/metadata/config.ini -i kvm -i vagrant-libvirt -i vagrant-virtualbox -k ${working_dir}/kickstarts/centos-atomic.ks --vkickstart ${working_dir}/kickstarts/centos-atomic-vagrant.ks --ostreerepo http://192.168.122.1:8000/repo/ -o ${working_dir}/build/virt
+    popd
+}
+
+build_fedora_vagrant_images() {
     pushd $working_dir
     sudo imagefactory --verbose base_image --file-parameter install_script kickstarts/centos-atomic-vagrant.ks metadata/atomic-7.1.tdl  --parameter offline_icicle true
 
@@ -197,14 +224,13 @@ build_vagrant_images() {
     popd
 }
 
+build() {
+    build_installer
+}
+
 tree() {
 echo "composing tree"
 sudo rpm-ostree compose tree --repo=/srv/repo ${working_dir}/metadata/*-host.json
-}
-
-build_installer() {
-    echo "building installer"
-    sudo rpm-ostree-toolbox installer --overwrite --ostreerepo ${working_dir}/build/repo -c ${working_dir}/metadata/config.ini -o ${working_dir}/build/installer
 }
 
 "$@"
