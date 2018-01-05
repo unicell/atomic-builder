@@ -11,6 +11,9 @@ working_dir="$HOME/working"
 BASE_DISTRO=${BASE_DISTRO:-"centos"}
 DISTRO_VERSION=${DISTRO_VERSION:-"downstream"}
 
+TDL_FILE=${TDL_FILE:-"atomic-7.1.tdl"}
+KS_FILE=${KS_FILE:-"centos-atomic-vagrant.ks"}
+
 # dnf / yum wrapper
 DNF_YUM=${DNF_YUM:-"dnf"}
 
@@ -162,7 +165,7 @@ prep_scripts() {
     #sed -i 's#http://.*#https://ci.centos.org/artifacts/sig-atomic/downstream/installer/images/</url>#g' metadata/*.tdl
     #sed -i 's#--url=.* #--url="http://192.168.122.1:8000/repo/" #g' kickstarts/*atomic*.ks
 
-    sed -i -e 's#</template>#    <disk>\n        <size>20G</size>\n    </disk>\n</template>#g' metadata/atomic-7.1.tdl
+    sed -i -e 's#</template>#    <disk>\n        <size>20G</size>\n    </disk>\n</template>#g' metadata/${TDL_FILE}
 
     # fedora config.ini needs a tweak
     #if [ $BASE_DISTRO = "fedora" ]; then
@@ -206,7 +209,7 @@ build_centos_vagrant_images() {
     :> $logfile
     sudo rm /var/lib/imagefactory/storage/*
 
-    sudo imagefactory --verbose base_image --file-parameter install_script ${working_dir}/metadata/centos-atomic-vagrant.ks ${working_dir}/metadata/atomic-7.1.tdl --parameter offline_icicle true |& tee ${logfile}
+    sudo imagefactory --verbose base_image --file-parameter install_script ${working_dir}/kickstarts/${KS_FILE} ${working_dir}/metadata/${TDL_FILE} --parameter offline_icicle true |& tee ${logfile}
 
     result_line=$(tail -1 ${logfile})
     image_type=$(tail -5 ${logfile} | awk '/Type:/ {print $2}')
@@ -238,13 +241,15 @@ build_centos_vagrant_images() {
             exit 1
     fi
     echo "${image_file} Ready!!"
+        #sudo imagefactory --verbose target_image --id ${base_uuid} rhevm
+        #sudo imagefactory --verbose target_image --parameter rhevm_ova_format vagrant-libvirt --id 7630af20-5350-4c54-a0bb-a533fb1bceea ova
 
     popd
 }
 
 build_fedora_vagrant_images() {
     pushd $working_dir
-    sudo imagefactory --verbose base_image --file-parameter install_script kickstarts/centos-atomic-vagrant.ks metadata/atomic-7.1.tdl  --parameter offline_icicle true
+    sudo imagefactory --verbose base_image --file-parameter install_script kickstarts/${KS_FILE} metadata/${TDL_FILE} --parameter offline_icicle true
 
     #sudo imagefactory --verbose target_image --id 95762804-ab21-4799-8eef-7ca934e2f95c vsphere
     #sudo imagefactory --verbose target_image --parameter vsphere_ova_format vagrant-virtualbox --id 7378fb87-30ee-46f7-a299-bb431977bece ova
