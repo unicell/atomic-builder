@@ -122,6 +122,13 @@ install_repos() {
     git clone -b $DISTRO_VERSION $kickstart_repo kickstarts
 }
 
+ensure_ostree_repo_modes() {
+    # deal with https://bugzilla.gnome.org/show_bug.cgi?id=748959
+    sudo chmod -R a+r /srv/repo/objects
+    sudo find /srv/repo/ -type d -exec chmod -R a+x {} \;
+    sudo find /srv/repo/ -type f -exec chmod -R a+r {} \;
+}
+
 # depends on install_repos
 prep_ostree_repos() {
     # initialize ostree repo
@@ -131,16 +138,13 @@ prep_ostree_repos() {
     # mirror ostree repo
     if [ $BASE_DISTRO = "centos" ]; then
       sudo ostree remote add --repo=/srv/repo centos-atomic-host --set=gpg-verify=false http://mirror.centos.org/centos/7/atomic/x86_64/repo
-      sudo ostree pull --depth=0 --repo=/srv/repo --mirror centos-atomic-host centos-atomic-host/7/x86_64/standard
+      sudo ostree pull --depth=1 --repo=/srv/repo --mirror centos-atomic-host centos-atomic-host/7/x86_64/standard
     elif [ $BASE_DISTRO = "fedora" ]; then
       sudo ostree remote add --repo=/srv/repo fedora-atomic --set=gpg-verify=false https://kojipkgs.fedoraproject.org/atomic/${DISTRO_VERSION:1}/
-      sudo ostree pull --depth=0 --repo=/srv/repo --mirror fedora-atomic fedora/${DISTRO_VERSION:1}/x86_64/atomic-host
+      sudo ostree pull --depth=1 --repo=/srv/repo --mirror fedora-atomic fedora/${DISTRO_VERSION:1}/x86_64/atomic-host
     fi
 
-    # deal with https://bugzilla.gnome.org/show_bug.cgi?id=748959
-    sudo chmod -R a+r /srv/repo/objects
-    sudo find /srv/repo/ -type d -exec chmod -R a+x {} \;
-    sudo find /srv/repo/ -type f -exec chmod -R a+r {} \;
+    ensure_ostree_repo_modes
 }
 
 prep_build() {
