@@ -80,37 +80,8 @@ install_dependencies() {
     sudo sed -i -e 's/requests_session.post/requests_session.head/g' /usr/lib/python2.7/site-packages/oz/ozutil.py
 }
 
-install_http_service() {
-    # SimpleHTTPServer to host local bits
-    # (from https://gist.github.com/funzoneq/737cd5316e525c388d51877fb7f542de)
-    sudo tee -a /etc/systemd/system/simplehttp.service <<'EOF'
-[Unit]
-Description=Job that runs the python SimpleHTTPServer daemon
-Documentation=man:SimpleHTTPServer(1)
-
-[Service]
-Type=simple
-WorkingDirectory=
-ExecStart=/usr/bin/python -m SimpleHTTPServer 8000 &
-ExecStop=/bin/kill `/bin/ps aux | /bin/grep SimpleHTTPServer | /bin/grep -v grep | /usr/bin/awk '{ print $2 }'`
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    sudo sed -i "s#^WorkingDirectory.*#WorkingDirectory=${working_dir}/build#g" /etc/systemd/system/simplehttp.service
-    sudo systemctl enable simplehttp --now
-}
-
-install_apache() {
-    sudo ${DNF_YUM} install -y httpd
-    sudo sed -i "s#^DocumentRoot.*#DocumentRoot ${working_dir}/build#g" /etc/httpd/conf/httpd.conf
-    sudo sed -i "s#^Listen.*#Listen 8000#g" /etc/httpd/conf/httpd.conf
-
-    sudo semanage port -m -t http_port_t -p tcp 8000
-    sudo systemctl enable httpd.service --now
+run_http_service() {
+    sudo docker run -d --name ostree-webserver -p 8000:80 -v ${working_dir}/build:/usr/local/apache2/htdocs/ -v /srv/repo:/srv/repo httpd:2.4
 }
 
 install_installers() {
@@ -201,10 +172,10 @@ setup() {
     prep_build
 
     install_dependencies
-    install_http_service
     #install_installers
-
     install_repos
+
+    run_http_service
     prep_ostree_repos
 
     prep_scripts
