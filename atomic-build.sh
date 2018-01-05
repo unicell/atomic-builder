@@ -196,6 +196,52 @@ __build_centos_vagrant_images() {
     popd
 }
 
+build_centos_vagrant_images() {
+    pushd $working_dir
+
+    # build base image
+    logfile=${working_dir}/build/log
+
+    # cleanup
+    :> $logfile
+    sudo rm /var/lib/imagefactory/storage/*
+
+    sudo imagefactory --verbose base_image --file-parameter install_script ${working_dir}/metadata/centos-atomic-vagrant.ks ${working_dir}/metadata/atomic-7.1.tdl --parameter offline_icicle true |& tee ${logfile}
+
+    result_line=$(tail -1 ${logfile})
+    image_type=$(tail -5 ${logfile} | awk '/Type:/ {print $2}')
+    if ! [[ $result_line =~ "SUCCESSFULLY" && $image_type == "base_image" ]]; then
+        echo "Base image build failure!"
+        exit 1
+    fi
+
+    # build target image for Vagrant Virtualbox
+    base_uuid=$(tail -5 ${logfile} | awk '/UUID:/ {print $2}')
+    sudo imagefactory --verbose target_image --id ${base_uuid} vsphere |& tee ${logfile}
+
+    result_line=$(tail -1 ${logfile})
+    image_type=$(tail -5 ${logfile} | awk '/Type:/ {print $2}')
+    if ! [[ $result_line =~ "SUCCESSFULLY" && $image_type == "target_image" ]]; then
+            echo "Vsphere target image build failure!"
+            exit 1
+    fi
+
+    # package target image for Vagrant Virtualbox
+    target_uuid=$(tail -5 ${logfile} | awk '/UUID:/ {print $2}')
+    sudo imagefactory --verbose target_image --parameter vsphere_ova_format vagrant-virtualbox --id ${target_uuid} ova |& tee ${logfile}
+
+    result_line=$(tail -1 ${logfile})
+    image_type=$(tail -5 ${logfile} | awk '/Type:/ {print $2}')
+    image_file=$(tail -5 ${logfile} | awk '/Image filename:/ {print $2}')
+    if ! [[ $result_line =~ "SUCCESSFULLY" && $image_type == "target_image" ]]; then
+            echo "Vagrant virtualbox target image build failure!"
+            exit 1
+    fi
+    echo "${image_file} Ready!!"
+
+    popd
+}
+
 build_fedora_vagrant_images() {
     pushd $working_dir
     sudo imagefactory --verbose base_image --file-parameter install_script kickstarts/centos-atomic-vagrant.ks metadata/atomic-7.1.tdl  --parameter offline_icicle true
@@ -210,6 +256,7 @@ build_fedora_vagrant_images() {
 
 build() {
     build_installer
+    build_centos_vagrant_images
 }
 
 tree() {
