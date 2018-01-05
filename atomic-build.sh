@@ -162,7 +162,7 @@ prep_scripts() {
     #sed -i 's#http://.*#https://ci.centos.org/artifacts/sig-atomic/downstream/installer/images/</url>#g' metadata/*.tdl
     #sed -i 's#--url=.* #--url="http://192.168.122.1:8000/repo/" #g' kickstarts/*atomic*.ks
 
-    sed -i -e 's#</template>#    <disk>\n        <size>40G</size>\n    </disk>\n</template>#g' metadata/atomic-7.1.tdl
+    sed -i -e 's#</template>#    <disk>\n        <size>20G</size>\n    </disk>\n</template>#g' metadata/atomic-7.1.tdl
 
     # fedora config.ini needs a tweak
     #if [ $BASE_DISTRO = "fedora" ]; then
