@@ -104,6 +104,15 @@ EOF
     sudo systemctl enable simplehttp --now
 }
 
+install_apache() {
+    sudo ${DNF_YUM} install -y httpd
+    sudo sed -i "s#^DocumentRoot.*#DocumentRoot ${working_dir}/build#g" /etc/httpd/conf/httpd.conf
+    sudo sed -i "s#^Listen.*#Listen 8000#g" /etc/httpd/conf/httpd.conf
+
+    sudo semanage port -m -t http_port_t -p tcp 8000
+    sudo systemctl enable httpd.service --now
+}
+
 install_installers() {
     # mirror installer
     mkdir -p ${working_dir}/build/installer/images/images/pxeboot
