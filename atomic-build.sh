@@ -195,22 +195,21 @@ build_installer() {
     sudo rpm-ostree-toolbox installer --overwrite --ostreerepo ${working_dir}/build/repo -c ${working_dir}/metadata/config.ini -o ${working_dir}/build/installer
 }
 
-__build_centos_vagrant_images() {
+build_vagrant_images_deprecated() {
     pushd $working_dir
     sudo rpm-ostree-toolbox imagefactory --overwrite --tdl ${working_dir}/metadata/atomic-7.1.tdl -c  ${working_dir}/metadata/config.ini -i kvm -i vagrant-libvirt -i vagrant-virtualbox -k ${working_dir}/kickstarts/centos-atomic.ks --vkickstart ${working_dir}/kickstarts/centos-atomic-vagrant.ks --ostreerepo http://192.168.122.1:8000/repo/ -o ${working_dir}/build/virt
     popd
 }
 
-build_centos_vagrant_images() {
+build_vagrant_images() {
     pushd $working_dir
 
-    # build base image
-    logfile=${working_dir}/build/log
-
     # cleanup
+    logfile=${working_dir}/build/log
     :> $logfile
     sudo rm /var/lib/imagefactory/storage/*
 
+    # build base image
     sudo imagefactory --verbose base_image --file-parameter install_script ${working_dir}/kickstarts/${KS_FILE} ${working_dir}/metadata/${TDL_FILE} --parameter offline_icicle true |& tee ${logfile}
 
     result_line=$(tail -1 ${logfile})
@@ -243,6 +242,7 @@ build_centos_vagrant_images() {
             exit 1
     fi
     echo "${image_file} Ready!!"
+
         #sudo imagefactory --verbose target_image --id ${base_uuid} rhevm
         #sudo imagefactory --verbose target_image --parameter rhevm_ova_format vagrant-libvirt --id 7630af20-5350-4c54-a0bb-a533fb1bceea ova
 
@@ -261,9 +261,9 @@ build_fedora_vagrant_images() {
     popd
 }
 
-build() {
+images() {
     build_installer
-    build_centos_vagrant_images
+    build_vagrant_images
 }
 
 tree() {
