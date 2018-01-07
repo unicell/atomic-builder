@@ -84,6 +84,8 @@ install_dependencies() {
 }
 
 run_http_service() {
+    sudo docker kill ostree-webserver || true
+    sudo docker rm ostree-webserver || true
     sudo docker run -d --name ostree-webserver -p 8000:80 -v ${working_dir}/build:/usr/local/apache2/htdocs/ -v /srv/repo:/srv/repo httpd:2.4
 }
 
